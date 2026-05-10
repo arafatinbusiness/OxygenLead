@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stores Store[]
+
+  @@index([email])
+}
+
+model Store {
+  id              String   @id @default(cuid())
+  url             String   @unique
+  domain          String
+  storeName       String?
+  storeType       String?
+  estimatedMonthlyRevenue Int?
+  foundersCount   Int?
+  scrapedAt       DateTime?
+  enrichedAt      DateTime?
+  leadScore       Int?
+  leadScoreCalculatedAt DateTime?
+  scrapingStatus  String?   @default("idle") // idle, queued, scraping, enriching, scoring, complete, error
+  scrapingProgress Int?     @default(0) // 0-100
+  scrapingStatusText String? // Human-readable status message
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  contacts        Contact[]
+  founders        Founder[]
+  socialAccounts  SocialAccount[]
+  linkedinMatches LinkedinMatch[]
+  jobListings     JobListing[]
+  history         StoreHistory[]
+  manualSearches  ManualSearch[]
+  manualContacts  ManualContact[]
+
+  @@index([userId])
+  @@index([domain])
+  @@index([leadScore])
+  @@index([createdAt])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  title     String?
+  linkedinUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([email])
+}
+
+model Founder {
+  id        String   @id @default(cuid())
+  name      String
+  role      String?
+  bio       String?
+  linkedinUrl String?
+  twitterUrl String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([linkedinUrl])
+}
+
+model SocialAccount {
+  id        String   @id @default(cuid())
+  platform  String // twitter, instagram, facebook, tiktok
+  handle    String
+  url       String
+  followers Int?
+  engagementRate Float?
+  lastFetchedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([platform])
+}
+
+model LinkedinMatch {
+  id        String   @id @default(cuid())
+  name      String
+  title     String?
+  company   String?
+  linkedinUrl String
+  matchConfidence Float // 0-1
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([linkedinUrl])
+}
+
+model JobListing {
+  id        String   @id @default(cuid())
+  title     String
+  department String?
+  url       String?
+  postedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model StoreHistory {
+  id        String   @id @default(cuid())
+  action    String // scrape_started, scrape_completed, enrichment_started, enrichment_completed, score_calculated
+  details   String? // JSON serialized details
+  error     String?
+  createdAt DateTime @default(now())
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+model QueueJob {
+  id        String   @id @default(cuid())
+  jobId     String   @unique
+  type      String // crawl-store, ai-enrich-founder, search-linkedin, score-lead
+  status    String // pending, processing, completed, failed
+  data      String // JSON serialized
+  result    String? // JSON serialized
+  error     String?
+  attempts  Int      @default(0)
+  maxAttempts Int    @default(3)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Tracks manual Google searches performed by the user from the store detail page
+model ManualSearch {
+  id        String   @id @default(cuid())
+  query     String   // The search query used
+  type      String   // "founder" for the quick search button, "custom" for the name input
+  createdAt DateTime @default(now())
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+// Manually entered contact info (email + status) by the user
+model ManualContact {
+  id        String   @id @default(cuid())
+  email     String
+  status    String   // owner, ceo, founder, manager
+  personName String? // optional name of the person
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([email])
+}
