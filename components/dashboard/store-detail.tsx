@@ -9,6 +9,7 @@ import {
   Search, Mail, Copy, CheckCircle2, ClipboardList
 } from 'lucide-react';
 import { ScrapingProgressBar } from './scraping-progress';
+import { apiUrl } from '@/lib/api';
 
 interface Store {
   id: string;
@@ -57,7 +58,7 @@ function CustomNameSearch({ storeId, token, domain, onSearchName }: { storeId: s
 
     // Save to database
     try {
-      await fetch(`http://localhost:3001/api/stores/${storeId}/manual-search`, {
+      await fetch(apiUrl(`/api/stores/${storeId}/manual-search`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +142,7 @@ function EmailEntryForm({
     setError('');
 
     try {
-      const response = await fetch(`http://localhost:3001/api/stores/${storeId}/manual-contact`, {
+      const response = await fetch(apiUrl(`/api/stores/${storeId}/manual-contact`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +299,7 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
     const fetchDetails = async () => {
       try {
         const response = await fetch(
-          `http://localhost:3001/api/stores/${store.id}`,
+          apiUrl(`/api/stores/${store.id}`),
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -323,7 +324,7 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
     const fetchContacts = async () => {
       try {
         const response = await fetch(
-          `http://localhost:3001/api/stores/${store.id}/manual-contacts`,
+          apiUrl(`/api/stores/${store.id}/manual-contacts`),
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -345,7 +346,7 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
 
   const handleSaveSearch = async (type: string, query: string) => {
     try {
-      await fetch(`http://localhost:3001/api/stores/${store.id}/manual-search`, {
+      await fetch(apiUrl(`/api/stores/${store.id}/manual-search`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -581,7 +582,7 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
             const refetch = async () => {
               try {
                 const response = await fetch(
-                  `http://localhost:3001/api/stores/${store.id}`,
+                  apiUrl(`/api/stores/${store.id}`),
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
                 if (response.ok) {

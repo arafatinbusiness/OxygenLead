@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BarChart3, Settings, FileSpreadsheet, ChevronDown, Calendar } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 interface SidebarProps {
   onLogout: () => void;
@@ -19,7 +20,7 @@ export function Sidebar({ onLogout, stores, token }: SidebarProps) {
   const handleDownloadReport = async (period: ReportPeriod) => {
     setDownloading(true);
     try {
-      let url = `http://localhost:3001/api/report?period=${period}`;
+      let url = apiUrl(`/api/report?period=${period}`);
 
       if (period === 'custom') {
         if (!customStartDate || !customEndDate) {

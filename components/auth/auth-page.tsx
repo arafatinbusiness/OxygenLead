@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 interface AuthPageProps {
   onLogin: (token: string) => void;
@@ -24,7 +25,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const response = await fetch(`http://localhost:3001${endpoint}`, {
+      const response = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

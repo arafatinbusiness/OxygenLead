@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 export type ScrapingStatus = 'idle' | 'queued' | 'scraping' | 'enriching' | 'scoring' | 'complete' | 'error';
 
@@ -37,7 +38,7 @@ export function ScrapingProgressBar({
   const fetchProgress = useCallback(async () => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/stores/${storeId}/progress`,
+        apiUrl(`/api/stores/${storeId}/progress`),
         {
           headers: { Authorization: `Bearer ${token}` },
         }

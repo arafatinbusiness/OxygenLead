@@ -5,6 +5,7 @@ import { Header } from './header';
 import { Sidebar } from './sidebar';
 import { StoresGrid } from './stores-grid';
 import { StoreDetail } from './store-detail';
+import { apiUrl } from '@/lib/api';
 
 interface Store {
   id: string;
@@ -32,7 +33,7 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/stores', {
+      const response = await fetch(apiUrl('/api/stores'), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -60,7 +61,7 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
 
   const handleAddStore = async (url: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/stores', {
+      const response = await fetch(apiUrl('/api/stores'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +84,7 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
 
   const handleDeleteStore = async (storeId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/stores/${storeId}`, {
+      const response = await fetch(apiUrl(`/api/stores/${storeId}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
