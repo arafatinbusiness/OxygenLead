@@ -34,6 +34,7 @@ export function ScrapingProgressBar({
   const [status, setStatus] = useState<ScrapingStatus>(initialStatus);
   const [progress, setProgress] = useState(initialProgress);
   const [statusText, setStatusText] = useState(initialStatusText);
+  const [timedOut, setTimedOut] = useState(false);
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -64,22 +65,50 @@ export function ScrapingProgressBar({
     return false;
   }, [storeId, token, onComplete]);
 
-  // Poll for progress updates
+  // Poll for progress updates with timeout
   useEffect(() => {
     // Don't poll if already in a terminal state
     if (status === 'complete' || status === 'error' || status === 'idle') {
       return;
     }
 
+    // Timeout after 5 minutes (300000ms) of polling
+    const timeout = setTimeout(() => {
+      setTimedOut(true);
+    }, 300000);
+
     const interval = setInterval(async () => {
       const shouldStop = await fetchProgress();
       if (shouldStop) {
         clearInterval(interval);
+        clearTimeout(timeout);
       }
     }, pollInterval);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [status, pollInterval, fetchProgress]);
+
+  // If timed out, show a stale/stopped state
+  if (timedOut) {
+    if (compact) {
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="w-3 h-3" />
+          <span>Stopped (timeout)</span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Clock className="w-4 h-4" />
+        <span>Scraping stopped (timeout)</span>
+      </div>
+    );
+  }
+
 
   // If idle and no progress, don't show anything
   if (status === 'idle' && progress === 0) {

@@ -5,6 +5,8 @@ import { searchLinkedinProfiles } from "../services/linkedin";
 import { calculateLeadScore } from "../services/scoring";
 import { updateProgress, markScrapingComplete, markScrapingError, PROGRESS_STEPS } from "../services/progress";
 
+
+
 // In-memory job queue (fallback when Redis is not available)
 class InMemoryQueue {
   private handlers: Map<string, (job: any) => Promise<any>> = new Map();
@@ -180,6 +182,13 @@ jobQueue.on("failed", async (job: any, err: Error) => {
       attempts: job.attemptsMade,
     },
   });
+
+  // Mark the store as errored so the frontend stops polling
+  const storeId = job.data?.storeId;
+  if (storeId) {
+    await markScrapingError(storeId, err.message);
+  }
 });
+
 
 export const isRedisAvailable = () => false;

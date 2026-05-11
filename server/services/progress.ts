@@ -64,6 +64,19 @@ export const markScrapingError = async (storeId: string, errorMessage: string): 
 };
 
 /**
+ * Mark a store's scraping as stale/timed out
+ * Used when a job has been running too long without completing
+ */
+export const markStoreStale = async (storeId: string): Promise<void> => {
+  await updateProgress(storeId, {
+    status: "error",
+    progress: 0,
+    statusText: "Stopped (timeout)",
+  });
+};
+
+
+/**
  * Get the current progress for a store
  */
 export const getProgress = async (storeId: string) => {

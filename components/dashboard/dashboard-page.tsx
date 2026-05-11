@@ -7,6 +7,11 @@ import { StoresGrid } from './stores-grid';
 import { StoreDetail } from './store-detail';
 import { apiUrl } from '@/lib/api';
 
+interface Contact {
+  id: string;
+  email?: string;
+}
+
 interface Store {
   id: string;
   url: string;
@@ -16,7 +21,9 @@ interface Store {
   leadScoreCalculatedAt?: string;
   scrapedAt?: string;
   createdAt: string;
+  contacts?: Contact[];
 }
+
 
 interface DashboardPageProps {
   token: string;
@@ -142,6 +149,29 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
     }
   };
 
+  const handleBulkDeleteStores = async (storeIds: string[]) => {
+    try {
+      // Delete all selected stores in parallel
+      await Promise.all(
+        storeIds.map((id) =>
+          fetch(apiUrl(`/api/stores/${id}`), {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        )
+      );
+
+      setStores(stores.filter((s) => !storeIds.includes(s.id)));
+      if (selectedStore && storeIds.includes(selectedStore.id)) {
+        setSelectedStore(null);
+        setView('list');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete stores');
+    }
+  };
+
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
@@ -175,8 +205,10 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
                 setView('detail');
               }}
               onDeleteStore={handleDeleteStore}
+              onBulkDeleteStores={handleBulkDeleteStores}
               onStoreUpdated={fetchStores}
             />
+
           ) : selectedStore ? (
             <StoreDetail
               store={selectedStore}
