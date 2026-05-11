@@ -613,32 +613,59 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
         </div>
       ) : (
         <>
-          {/* Founders */}
+          {/* Founders - Enhanced with Gemini source badge */}
           {detailedStore.founders && detailedStore.founders.length > 0 && (
             <Card className="p-6 border-secondary/20">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                Founders ({detailedStore.founders.length})
+                Founder Information
               </h2>
               <div className="space-y-3">
                 {detailedStore.founders.map((founder) => (
-                  <div key={founder.id} className="p-4 rounded-lg bg-secondary/5">
-                    <p className="font-medium">{founder.name}</p>
-                    {founder.role && (
-                      <p className="text-sm text-muted-foreground">
-                        {founder.role}
-                      </p>
-                    )}
+                  <div key={founder.id} className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-lg">{founder.name}</p>
+                        {founder.role && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {founder.role}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                        AI Detected
+                      </span>
+                    </div>
                     {founder.bio && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {founder.bio.substring(0, 200)}...
+                      <p className="text-sm text-muted-foreground mt-3 border-t border-secondary/10 pt-3">
+                        {founder.bio.substring(0, 300)}
                       </p>
                     )}
+                    {/* Quick search button */}
+                    <div className="mt-3 pt-3 border-t border-secondary/10">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-secondary/20 hover:bg-secondary/5"
+                        onClick={() => {
+                          const query = `${founder.name} ${detailedStore.domain} linkedin`;
+                          window.open(
+                            `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+                            '_blank',
+                            'noopener,noreferrer'
+                          );
+                        }}
+                      >
+                        <Search className="w-3 h-3 mr-2" />
+                        Search {founder.name} on LinkedIn
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
             </Card>
           )}
+
 
           {/* Social Accounts */}
           {detailedStore.socialAccounts &&

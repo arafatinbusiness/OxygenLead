@@ -1,24 +1,27 @@
 import prisma from "../utils/prisma";
 import { enqueueJob } from "../queue/queue";
+import { extractFoundersWithGemini } from "./gemini";
+import { updateProgress, PROGRESS_STEPS } from "./progress";
 
 
 
 /**
  * ENRICHMENT LAYER - Smart Extraction
  * 
- * RULE: Patterns FIRST, AI ONLY if patterns fail
+ * Strategy: Gemini AI FIRST, patterns as fallback
  * 
- * Why?
- * - Patterns are fast, cheap, consistent, deterministic
- * - AI is slow, expensive, variable
- * - Most sites have explicit founder info
+ * Why Gemini first?
+ * - Much more accurate at finding founder names from context
+ * - Can understand the website content semantically
+ * - Free tier is generous (1500 requests/day)
+ * - Patterns only catch explicit mentions like "Founder: John"
  */
 
 interface FounderInfo {
   name: string;
   role: string;
   confidence: "high" | "medium" | "low";
-  source: "pattern" | "ai";
+  source: "pattern" | "ai" | "gemini";
 }
 
 interface EnrichmentResult {
@@ -28,7 +31,7 @@ interface EnrichmentResult {
 }
 
 /**
- * PATTERN-BASED FOUNDER EXTRACTION
+ * PATTERN-BASED FOUNDER EXTRACTION (Fallback)
  * Deterministic - NO external APIs needed
  */
 const FOUNDER_PATTERNS = [
@@ -59,11 +62,22 @@ const FOUNDER_PATTERNS = [
     role: "CTO",
     confidence: "medium" as const,
   },
+  // Owner mentions
+  {
+    pattern: /owner[s]?\s*[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi,
+    role: "Owner",
+    confidence: "medium" as const,
+  },
+  // President
+  {
+    pattern: /president\s*[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi,
+    role: "President",
+    confidence: "medium" as const,
+  },
 ];
 
 /**
- * STEP 1: Extract founders using PATTERN MATCHING
- * Fast (milliseconds), cheap (free), reliable
+ * Extract founders using PATTERN MATCHING (fallback)
  */
 export const extractFoundersWithPatterns = (
   textContent: string
@@ -99,77 +113,8 @@ export const extractFoundersWithPatterns = (
 };
 
 /**
- * STEP 2: AI Enrichment - FALLBACK ONLY
- * Only called if patterns fail
- */
-const enrichWithAI = async (
-  textContent: string
-): Promise<FounderInfo[]> => {
-  if (!process.env.OPENAI_API_KEY) {
-    console.log(`[v0] ENRICHMENT: No OpenAI key, patterns only`);
-    return [];
-  }
-
-  try {
-    console.log(`[v0] ENRICHMENT: Attempting AI enrichment...`);
-
-    const { OpenAI } = await import("openai");
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    // Only send relevant excerpt (save tokens)
-    const excerpt = textContent.substring(0, 2000);
-
-    const message = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: `Extract founder/leadership names from text. Return JSON: [{"name": "...", "role": "..."}]. Be strict - only names you're certain about. Return [] if unclear.`,
-        },
-        {
-          role: "user",
-          content: excerpt,
-        },
-      ],
-      temperature: 0.1, // Low temp = consistent
-      max_tokens: 200,
-    });
-
-    let aiFounders: FounderInfo[] = [];
-
-    try {
-      const content = message.content[0];
-      if (content.type === "text") {
-        const jsonMatch = content.text.match(/\[[\s\S]*?\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          aiFounders = parsed
-            .filter((f: any) => f.name && f.role)
-            .map((f: any) => ({
-              name: f.name,
-              role: f.role,
-              confidence: "medium" as const,
-              source: "ai" as const,
-            }));
-        }
-      }
-    } catch (parseError) {
-      console.warn(`[v0] ENRICHMENT: AI parse failed`, parseError);
-    }
-
-    console.log(`[v0] ENRICHMENT: AI found ${aiFounders.length} founders`);
-    return aiFounders;
-  } catch (error) {
-    console.warn(`[v0] ENRICHMENT: AI failed, continuing with patterns`, error);
-    return [];
-  }
-};
-
-/**
  * MAIN ENRICHMENT PIPELINE
- * Patterns first → AI only if needed
+ * Gemini AI first → Patterns as fallback
  */
 export const enrichFounderData = async (
   storeId: string,
@@ -178,24 +123,33 @@ export const enrichFounderData = async (
   try {
     console.log(`[v0] ENRICHMENT: Starting for store ${storeId}`);
 
-    // STEP 1: Try patterns (fast, free)
-    const patternFounders = extractFoundersWithPatterns(textContent);
+    // Get the store URL for Gemini context
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { url: true },
+    });
+    const storeUrl = store?.url || '';
+
+    // STEP 1: Try Gemini AI first (much more accurate)
+    await updateProgress(storeId, PROGRESS_STEPS.ANALYZING_WITH_AI);
+    const geminiFounders = await extractFoundersWithGemini(storeUrl, textContent);
     console.log(
-      `[v0] ENRICHMENT: Patterns found ${patternFounders.length} founders`
+      `[v0] ENRICHMENT: Gemini found ${geminiFounders.length} founders`
     );
 
-    // STEP 2: Use AI only if patterns found nothing or only low-confidence results
-    let allFounders = patternFounders;
-    let usedAI = false;
+    // STEP 2: Use patterns as fallback if Gemini found nothing
+    let allFounders: FounderInfo[] = [...geminiFounders];
+    let usedAI = geminiFounders.length > 0;
 
-    const highConfidence = patternFounders.filter((f) => f.confidence === "high");
-    if (highConfidence.length === 0) {
+    if (allFounders.length === 0) {
       console.log(
-        `[v0] ENRICHMENT: No high-confidence pattern matches, trying AI...`
+        `[v0] ENRICHMENT: Gemini found nothing, trying patterns...`
       );
-      const aiFounders = await enrichWithAI(textContent);
-      allFounders = [...patternFounders, ...aiFounders];
-      usedAI = aiFounders.length > 0;
+      const patternFounders = extractFoundersWithPatterns(textContent);
+      allFounders = patternFounders;
+      console.log(
+        `[v0] ENRICHMENT: Patterns found ${patternFounders.length} founders`
+      );
     }
 
     // STEP 3: Save to database
@@ -225,15 +179,15 @@ export const enrichFounderData = async (
     await prisma.storeHistory.create({
       data: {
         storeId,
-        action: "enriched", // Event type
+        action: "enriched",
         details: JSON.stringify({
           foundersCount: allFounders.length,
-          patternMatches: patternFounders.length,
-          aiMatches: allFounders.length - patternFounders.length,
+          geminiMatches: geminiFounders.length,
+          patternMatches: allFounders.filter(f => f.source === "pattern").length,
           usedAI,
           sources: {
+            gemini: allFounders.filter((f) => f.source === "gemini").length,
             pattern: allFounders.filter((f) => f.source === "pattern").length,
-            ai: allFounders.filter((f) => f.source === "ai").length,
           },
         }),
       },
@@ -250,13 +204,13 @@ export const enrichFounderData = async (
     await enqueueJob("score-lead", { storeId });
 
     console.log(
-      `[v0] ENRICHMENT: Completed. Found ${allFounders.length} founders (${usedAI ? "with AI" : "patterns only"})`
+      `[v0] ENRICHMENT: Completed. Found ${allFounders.length} founders (${usedAI ? "Gemini AI" : "patterns only"})`
     );
 
     return {
       founders: allFounders,
       usedAI,
-      pattern_matches: patternFounders.length,
+      pattern_matches: allFounders.filter(f => f.source === "pattern").length,
     };
   } catch (error) {
     console.error(`[v0] ENRICHMENT ERROR for ${storeId}:`, error);
