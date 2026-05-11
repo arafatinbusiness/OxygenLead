@@ -1,7 +1,8 @@
 import prisma from "../utils/prisma";
-import { enqueueJob } from "../queue/queue";
 import { extractFoundersWithGemini } from "./gemini";
-import { updateProgress, PROGRESS_STEPS } from "./progress";
+
+import { updateProgress, markScrapingComplete, PROGRESS_STEPS } from "./progress";
+
 
 
 
@@ -193,15 +194,8 @@ export const enrichFounderData = async (
       },
     });
 
-    // STEP 6: Enqueue next jobs
-    for (const founder of allFounders) {
-      await enqueueJob("search-linkedin", {
-        storeId,
-        founderName: founder.name,
-        founderRole: founder.role,
-      });
-    }
-    await enqueueJob("score-lead", { storeId });
+    // STEP 6: Mark as complete (skip auto LinkedIn search - user does it manually)
+    await markScrapingComplete(storeId);
 
     console.log(
       `[v0] ENRICHMENT: Completed. Found ${allFounders.length} founders (${usedAI ? "Gemini AI" : "patterns only"})`
@@ -212,6 +206,7 @@ export const enrichFounderData = async (
       usedAI,
       pattern_matches: allFounders.filter(f => f.source === "pattern").length,
     };
+
   } catch (error) {
     console.error(`[v0] ENRICHMENT ERROR for ${storeId}:`, error);
 

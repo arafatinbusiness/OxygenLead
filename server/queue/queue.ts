@@ -1,8 +1,6 @@
 import prisma from "../utils/prisma";
 import { scrapeStore } from "../services/scraper";
 import { enrichFounderData } from "../services/enrichment";
-import { searchLinkedinProfiles } from "../services/linkedin";
-import { calculateLeadScore } from "../services/scoring";
 import { updateProgress, markScrapingComplete, markScrapingError, PROGRESS_STEPS } from "../services/progress";
 
 
@@ -125,38 +123,7 @@ jobQueue.process("ai-enrich-founder", async (job: any) => {
   ].join(" ");
   const result = await enrichFounderData(storeId, textContent);
   
-  // After enrichment, enqueue LinkedIn search
-  await updateProgress(storeId, PROGRESS_STEPS.SEARCHING_LINKEDIN);
-  
   return { status: "completed", data: result };
-});
-
-jobQueue.process("search-linkedin", async (job: any) => {
-  console.log(`[v0] Processing search-linkedin job: ${job.id}`);
-  const { storeId, founderName, founderRole } = job.data;
-  
-  await updateProgress(storeId, PROGRESS_STEPS.SEARCHING_LINKEDIN);
-  
-  const matches = await searchLinkedinProfiles(storeId, founderName, founderRole);
-  
-  // After LinkedIn search, enqueue scoring
-  await updateProgress(storeId, PROGRESS_STEPS.CALCULATING_SCORE);
-  
-  return { status: "completed", data: matches };
-});
-
-jobQueue.process("score-lead", async (job: any) => {
-  console.log(`[v0] Processing score-lead job: ${job.id}`);
-  const { storeId } = job.data;
-  
-  await updateProgress(storeId, PROGRESS_STEPS.CALCULATING_SCORE);
-  
-  const score = await calculateLeadScore(storeId);
-  
-  // Mark as complete after scoring
-  await markScrapingComplete(storeId);
-  
-  return { status: "completed", data: score };
 });
 
 // Job event handlers
