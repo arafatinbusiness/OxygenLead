@@ -487,14 +487,14 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
                 Search for founder on Google
               </p>
               <p className="text-xs text-muted-foreground/60">
-                Opens a new tab searching: &ldquo;{detailedStore.domain} founder name linkedin&rdquo;
+                Opens a new tab searching: &ldquo;{detailedStore.domain} founder OR owner OR ceo name linkedin&rdquo;
               </p>
             </div>
             <Button
               variant="outline"
               className="shrink-0 border-secondary/20 hover:bg-secondary/5"
               onClick={() => {
-                const query = `${detailedStore.domain} founder name linkedin`;
+                const query = `${detailedStore.domain} founder OR owner OR ceo name linkedin`;
                 handleSaveSearch('founder', query);
                 window.open(
                   `https://www.google.com/search?q=${encodeURIComponent(query)}`,
