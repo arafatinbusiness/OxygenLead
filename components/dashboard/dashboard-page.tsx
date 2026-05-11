@@ -60,6 +60,24 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
   }, []);
 
   const handleAddStore = async (url: string) => {
+    // Extract domain from URL immediately (before any await) to open search tab
+    let domain = '';
+    try {
+      const urlObj = new URL(url);
+      domain = urlObj.hostname.replace('www.', '');
+    } catch {
+      // fallback: use raw url
+      domain = url.replace(/https?:\/\//, '').replace(/\/.*$/, '').replace('www.', '');
+    }
+    const query = `${domain} founder owner ceo linkedin`;
+
+    // Open Google search in new tab immediately (before any await to avoid popup blocker)
+    window.open(
+      `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+
     try {
       const response = await fetch(apiUrl('/api/stores'), {
         method: 'POST',
@@ -82,10 +100,6 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
       setSelectedStore(newStore);
       setView('detail');
 
-      // Automatically search for founder in a new tab
-      const domain = newStore.domain;
-      const query = `${domain} founder owner ceo linkedin`;
-
       // Save the search to database
       try {
         await fetch(apiUrl(`/api/stores/${newStore.id}/manual-search`), {
@@ -100,17 +114,12 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
         console.error('Failed to save auto search:', err);
       }
 
-      // Open Google search in new tab
-      window.open(
-        `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add store');
     }
   };
+
+
 
   const handleDeleteStore = async (storeId: string) => {
     try {
