@@ -67,15 +67,19 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
 // Add new store
 router.post("/", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { url } = req.body;
+    let { url } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
 
+    // Normalize URL: remove trailing slash
+    url = url.replace(/\/+$/, "");
+
     // Extract domain from URL
     const urlObj = new URL(url);
     const domain = urlObj.hostname.replace("www.", "");
+
 
     // Check if store already exists for this user
     const existing = await prisma.store.findFirst({
