@@ -77,6 +77,31 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
 
       const newStore = await response.json();
       setStores([newStore, ...stores]);
+
+      // Automatically search for founder in a new tab
+      const domain = newStore.domain;
+      const query = `${domain} founder OR owner OR ceo name linkedin`;
+      
+      // Save the search to database
+      try {
+        await fetch(apiUrl(`/api/stores/${newStore.id}/manual-search`), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ query, type: 'founder' }),
+        });
+      } catch (err) {
+        console.error('Failed to save auto search:', err);
+      }
+
+      // Open Google search in new tab
+      window.open(
+        `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+        '_blank',
+        'noopener,noreferrer'
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add store');
     }
