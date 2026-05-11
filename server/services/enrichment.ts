@@ -124,6 +124,25 @@ export const enrichFounderData = async (
   try {
     console.log(`[v0] ENRICHMENT: Starting for store ${storeId}`);
 
+    // Check if founders already exist (from quick Gemini lookup)
+    const existingFounders = await prisma.founder.findMany({
+      where: { storeId },
+    });
+    if (existingFounders.length > 0) {
+      console.log(`[v0] ENRICHMENT: Founders already exist from quick lookup, skipping enrichment`);
+      await markScrapingComplete(storeId);
+      return {
+        founders: existingFounders.map(f => ({
+          name: f.name,
+          role: f.role || 'Founder',
+          confidence: "high" as const,
+          source: "gemini" as const,
+        })),
+        usedAI: true,
+        pattern_matches: 0,
+      };
+    }
+
     // Get the store URL for Gemini context
     const store = await prisma.store.findUnique({
       where: { id: storeId },
@@ -152,6 +171,7 @@ export const enrichFounderData = async (
         `[v0] ENRICHMENT: Patterns found ${patternFounders.length} founders`
       );
     }
+
 
     // STEP 3: Save to database
     for (const founder of allFounders) {

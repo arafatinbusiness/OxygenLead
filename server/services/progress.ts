@@ -106,6 +106,8 @@ export const PROGRESS_STEPS = {
   SAVING_DATA: { status: "scraping" as ScrapingStatus, progress: 75, statusText: "Saving scraped data..." },
   ENRICHING_FOUNDER: { status: "enriching" as ScrapingStatus, progress: 80, statusText: "Enriching founder data..." },
   ANALYZING_WITH_AI: { status: "enriching" as ScrapingStatus, progress: 85, statusText: "Analyzing with AI..." },
+  FOUNDER_FOUND: { status: "enriching" as ScrapingStatus, progress: 90, statusText: "Founder found!" },
   COMPLETE: { status: "complete" as ScrapingStatus, progress: 100, statusText: "Complete!" },
+
 
 };

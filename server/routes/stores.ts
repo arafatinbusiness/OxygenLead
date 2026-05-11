@@ -3,8 +3,10 @@ import prisma from "../utils/prisma";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
 import { enqueueJob } from "../queue/queue";
 import { updateProgress, getProgress, PROGRESS_STEPS } from "../services/progress";
+import { quickFounderLookup } from "../services/gemini";
 
 const router = Router();
+
 
 
 // Get all stores for user with pagination
@@ -99,10 +101,42 @@ router.post("/", authMiddleware, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Enqueue scraping job
+    // STEP 1: Quick Gemini lookup (1-2 seconds) - no scraping needed
+    // This runs immediately and saves the founder if found
+    updateProgress(store.id, PROGRESS_STEPS.ANALYZING_WITH_AI).catch(() => {});
+    quickFounderLookup(url).then(async (founders) => {
+      if (founders.length > 0) {
+        console.log(`[v0] Quick Gemini lookup found founder for ${domain}: ${founders[0].name}`);
+        for (const founder of founders) {
+          try {
+            await prisma.founder.create({
+              data: {
+                storeId: store.id,
+                name: founder.name,
+                role: founder.role,
+              },
+            });
+          } catch (e) {
+            // Founder may already exist
+          }
+        }
+        await prisma.store.update({
+          where: { id: store.id },
+          data: { enrichedAt: new Date() },
+        });
+        await updateProgress(store.id, PROGRESS_STEPS.FOUNDER_FOUND);
+      } else {
+        console.log(`[v0] Quick Gemini lookup found nothing for ${domain}, will use scrape fallback`);
+      }
+    }).catch((err) => {
+      console.error(`[v0] Quick Gemini lookup failed for ${domain}:`, err.message);
+    });
+
+    // STEP 2: Enqueue full scraping job (runs in background, may take time)
     await enqueueJob("crawl-store", { storeId: store.id, url });
 
     res.status(201).json(store);
+
   } catch (error) {
     console.error("[v0] Add store error:", error);
     res.status(500).json({ error: "Failed to create store" });
