@@ -78,10 +78,14 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
       const newStore = await response.json();
       setStores([newStore, ...stores]);
 
+      // Auto-navigate to store detail view
+      setSelectedStore(newStore);
+      setView('detail');
+
       // Automatically search for founder in a new tab
       const domain = newStore.domain;
-      const query = `${domain} founder OR owner OR ceo name linkedin`;
-      
+      const query = `${domain} founder owner ceo linkedin`;
+
       // Save the search to database
       try {
         await fetch(apiUrl(`/api/stores/${newStore.id}/manual-search`), {
@@ -102,6 +106,7 @@ export default function DashboardPage({ token, onLogout }: DashboardPageProps) {
         '_blank',
         'noopener,noreferrer'
       );
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add store');
     }
