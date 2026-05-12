@@ -75,11 +75,17 @@ router.post("/", authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "URL is required" });
     }
 
+    // Auto-add https:// if no protocol is present (handles "buytake.shop", "buytake.shopify.com", etc.)
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
     // Normalize URL: remove trailing slash
     url = url.replace(/\/+$/, "");
 
     // Extract domain from URL
     const urlObj = new URL(url);
+
     const domain = urlObj.hostname.replace("www.", "");
 
 
