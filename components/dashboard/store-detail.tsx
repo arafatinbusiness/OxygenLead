@@ -375,7 +375,7 @@ function LeadExportForm({
             if (data.positivePoint1) {
               setPp1Great(data.positivePoint1.includes('really great'));
               setPp1BumpOffers(data.positivePoint1.includes('Buy More Save More'));
-              setPp1Upsell(data.positivePoint1.includes('upsell'));
+              setPp1Upsell(data.positivePoint1.includes('not all pdp will have that'));
             }
             if (data.positivePoint2) {
               setPp2Visual(data.positivePoint2.includes('visual'));
@@ -417,12 +417,12 @@ function LeadExportForm({
     const parts: string[] = [];
     if (pp1Great) parts.push("The product detail page is really great");
     if (pp1BumpOffers) parts.push("has Buy More Save More & bump offers");
-    if (pp1Upsell) parts.push("upsell");
+    if (pp1Upsell) parts.push("upsell but not all pdp will have that.");
     if (parts.length === 0) return leadExport.positivePoint1 || "";
     if (parts.length === 1) return parts[0];
     // Combine: first part + " and " + rest joined with " & "
     const last = parts.pop()!;
-    return parts.join(", ") + " and " + last + ".";
+    return parts.join(", ") + " and " + last;
   };
 
   // Build positive point 2 text from checkboxes
