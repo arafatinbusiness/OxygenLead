@@ -5,6 +5,8 @@ import { enqueueJob } from "../queue/queue";
 import { updateProgress, getProgress, PROGRESS_STEPS } from "../services/progress";
 import { quickFounderLookup } from "../services/gemini";
 import { scrapeFbAdsLibrary, buildImprovement1Text } from "../services/fb-ads";
+import { scrapeGoogleSearch } from "../services/google-scraper";
+import { validateStores } from "../services/store-validator";
 
 const router = Router();
 
@@ -383,6 +385,142 @@ router.post("/:id/scan-fb-ads", authMiddleware, async (req: AuthRequest, res: Re
   } catch (error) {
     console.error("[v0] Scan FB Ads error:", error);
     res.status(500).json({ error: "Failed to scan Facebook Ads Library" });
+  }
+});
+
+// Google Store Finder: Search Google for stores matching a query
+router.post("/google-search", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { query, pages = 1 } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ error: "Search query is required" });
+    }
+
+    const pagesNum = Math.min(Math.max(1, parseInt(pages) || 1), 10);
+
+    console.log(`[google-search] Searching Google for "${query}" (${pagesNum} pages)...`);
+
+    // Step 1: Scrape Google search results
+    const searchResult = await scrapeGoogleSearch(query, pagesNum);
+
+    if (!searchResult.success) {
+      return res.status(500).json({
+        error: searchResult.error || "Failed to search Google",
+      });
+    }
+
+    // Step 2: Validate each URL (check if Shopify, extract store name)
+    const urls = searchResult.results.map((r) => r.url);
+    const validationResult = await validateStores(urls);
+
+    // Step 3: Filter to only Shopify stores
+    const shopifyStores = validationResult.stores.filter((s) => s.isShopify);
+
+    res.json({
+      totalFound: searchResult.totalResults,
+      totalValidated: validationResult.stores.length,
+      totalShopify: shopifyStores.length,
+      stores: shopifyStores,
+      allResults: validationResult.stores,
+    });
+  } catch (error) {
+    console.error("[v0] Google search error:", error);
+    res.status(500).json({ error: "Failed to search Google for stores" });
+  }
+});
+
+// Batch import stores from a list of URLs
+router.post("/batch-import", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { urls } = req.body;
+
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ error: "URLs array is required" });
+    }
+
+    const results: { url: string; domain: string; status: "added" | "skipped" | "error"; error?: string; storeId?: string }[] = [];
+
+    for (const rawUrl of urls) {
+      try {
+        let url = rawUrl;
+
+        // Auto-add https:// if no protocol
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+          url = "https://" + url;
+        }
+
+        // Normalize URL
+        url = url.replace(/\/+$/, "");
+
+        // Extract domain
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname.replace("www.", "");
+
+        // Check if store already exists for this user
+        const existing = await prisma.store.findFirst({
+          where: { domain, userId: req.userId },
+        });
+
+        if (existing) {
+          results.push({ url, domain, status: "skipped" });
+          continue;
+        }
+
+        // Create store
+        const store = await prisma.store.create({
+          data: {
+            url,
+            domain,
+            userId: req.userId!,
+          },
+        });
+
+        // Enqueue scraping job in background
+        enqueueJob("crawl-store", { storeId: store.id, url }).catch((err) => {
+          console.error(`[batch-import] Failed to enqueue job for ${domain}:`, err.message);
+        });
+
+        // Quick Gemini lookup in background
+        quickFounderLookup(url).then(async (founders) => {
+          if (founders.length > 0) {
+            for (const founder of founders) {
+              try {
+                await prisma.founder.create({
+                  data: {
+                    storeId: store.id,
+                    name: founder.name,
+                    role: founder.role,
+                  },
+                });
+              } catch {
+                // Founder may already exist
+              }
+            }
+          }
+        }).catch(() => {});
+
+        results.push({ url, domain, status: "added", storeId: store.id });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        results.push({ url: rawUrl, domain: "", status: "error", error: errorMessage });
+      }
+    }
+
+    const added = results.filter((r) => r.status === "added").length;
+    const skipped = results.filter((r) => r.status === "skipped").length;
+    const errors = results.filter((r) => r.status === "error").length;
+
+    res.json({
+      total: results.length,
+      added,
+      skipped,
+      errors,
+      results,
+    });
+  } catch (error) {
+    console.error("[v0] Batch import error:", error);
+    res.status(500).json({ error: "Failed to batch import stores" });
   }
 });
 

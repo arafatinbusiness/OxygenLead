@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Plus, Trash2, TrendingUp, Calendar, Mail, Square, CheckSquare } from 'lucide-react';
+import { Plus, Trash2, TrendingUp, Calendar, Mail, Square, CheckSquare, Globe, ChevronDown, ChevronUp } from 'lucide-react';
 import { ScrapingProgressBar } from './scraping-progress';
+import { GoogleStoreFinder } from './google-store-finder';
 
 interface Contact {
   id: string;
@@ -52,6 +53,7 @@ export function StoresGrid({
   const [adding, setAdding] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showGoogleFinder, setShowGoogleFinder] = useState(false);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +138,18 @@ export function StoresGrid({
       {/* Add Store Form */}
       <div className="max-w-2xl">
         <Card className="p-6 border-secondary/20">
-          <h2 className="text-lg font-semibold mb-4">Add New Store</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Add New Store</h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowGoogleFinder(!showGoogleFinder)}
+              className="border-secondary/20 hover:bg-secondary/5"
+            >
+              <Globe className="w-4 h-4 mr-2" />
+              {showGoogleFinder ? 'Hide' : 'Google Store Finder'}
+            </Button>
+          </div>
           <form onSubmit={handleAdd} className="flex gap-2">
             <Input
               type="url"
@@ -157,6 +170,16 @@ export function StoresGrid({
           </form>
         </Card>
       </div>
+
+      {/* Google Store Finder */}
+      {showGoogleFinder && (
+        <GoogleStoreFinder
+          token={token}
+          onStoresAdded={() => {
+            if (onStoreUpdated) onStoreUpdated();
+          }}
+        />
+      )}
 
       {/* Stores Grid */}
       <div>

@@ -85,7 +85,7 @@ function findPlaywrightCliPath(): string | null {
  * Ensure Playwright browsers are installed.
  * If the browser executable is missing, auto-install it.
  */
-function ensurePlaywrightBrowsers(): void {
+export function ensurePlaywrightBrowsers(): void {
   if (arePlaywrightBrowsersInstalled()) {
     return;
   }
