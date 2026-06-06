@@ -351,7 +351,7 @@ function LeadExportForm({
 
   // Improvement 1 radio-like selection
   const [imp1NoAds, setImp1NoAds] = useState(false);
-  const [imp1HasAds, setImp1HasAds] = useState(false);
+  const [imp1AdCount, setImp1AdCount] = useState<number | null>(null);
 
   // Quick Question
   const [useDefaultQuestion, setUseDefaultQuestion] = useState(true);
@@ -384,8 +384,16 @@ function LeadExportForm({
             if (data.improvement1) {
               if (data.improvement1.includes("don't see you're running any meta ads")) {
                 setImp1NoAds(true);
+                setImp1AdCount(null);
               } else {
-                setImp1HasAds(true);
+                // Try to extract ad count from text like "only 3 active meta ads"
+                const match = data.improvement1.match(/only (\d+) active/);
+                if (match) {
+                  const count = parseInt(match[1]);
+                  if (count >= 1 && count <= 5) {
+                    setImp1AdCount(count);
+                  }
+                }
               }
             }
             if (data.quickQuestion) {
@@ -439,8 +447,8 @@ function LeadExportForm({
     if (imp1NoAds) {
       return "I don't see you're running any meta ads for selling your products. There's a high chance that your current priority is totally on organic sales.";
     }
-    if (imp1HasAds) {
-      return "You've only one active meta ad scheduled and may be you're current priorities are from organic sales.";
+    if (imp1AdCount !== null) {
+      return `You've only ${imp1AdCount} active meta ads scheduled and may be you're current priorities are from organic sales.`;
     }
     return leadExport.improvement1 || "";
   };
@@ -664,24 +672,31 @@ function LeadExportForm({
                   type="radio"
                   name="improvement1"
                   checked={imp1NoAds}
-                  onChange={() => { setImp1NoAds(true); setImp1HasAds(false); }}
+                  onChange={() => { setImp1NoAds(true); setImp1AdCount(null); }}
                   className="accent-primary"
                 />
                 <span>No Meta Ads</span>
               </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name="improvement1"
-                  checked={imp1HasAds}
-                  onChange={() => { setImp1HasAds(true); setImp1NoAds(false); }}
-                  className="accent-primary"
-                />
-                <span>Has Meta Ads</span>
-              </label>
+              <div className="pt-2">
+                <p className="text-xs text-muted-foreground mb-2">Has Meta Ads (select count):</p>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5].map((count) => (
+                    <label key={count} className="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border border-secondary/20 hover:bg-secondary/5">
+                      <input
+                        type="radio"
+                        name="improvement1"
+                        checked={imp1AdCount === count}
+                        onChange={() => { setImp1AdCount(count); setImp1NoAds(false); }}
+                        className="accent-primary"
+                      />
+                      <span>{count} {count === 1 ? 'ad' : 'ads'}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
             {/* Preview */}
-            {(imp1NoAds || imp1HasAds) && (
+            {(imp1NoAds || imp1AdCount !== null) && (
               <div className="mt-3 p-2 rounded bg-background/50 text-xs text-muted-foreground italic">
                 Preview: {buildImprovement1()}
               </div>
