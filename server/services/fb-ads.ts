@@ -1,4 +1,7 @@
 import { chromium } from "playwright";
+import { execSync } from "child_process";
+import * as path from "path";
+import * as fs from "fs";
 
 interface FbAdsResult {
   /** Total number of active ads found */
@@ -9,6 +12,82 @@ interface FbAdsResult {
   success: boolean;
   /** Error message if any */
   error?: string;
+}
+
+/**
+ * Check if Playwright browsers are installed by looking for the
+ * chromium-headless-shell executable at the expected cache path.
+ */
+function arePlaywrightBrowsersInstalled(): boolean {
+  const home = process.env.HOME || "/root";
+  const cacheDir = process.env.PLAYWRIGHT_BROWSERS_PATH ||
+    path.join(home, ".cache", "ms-playwright");
+  const browserDir = path.join(cacheDir, "chromium_headless_shell-1217");
+  const executable = path.join(browserDir, "chrome-headless-shell-linux64", "chrome-headless-shell");
+  return fs.existsSync(executable);
+}
+
+/**
+ * Find the playwright-core CLI path in node_modules.
+ */
+function findPlaywrightCliPath(): string | null {
+  // Check common locations
+  const candidates = [
+    path.join(process.cwd(), "node_modules", "playwright-core", "cli.js"),
+    path.join(process.cwd(), "node_modules", "playwright", "cli.js"),
+  ];
+
+  // Check pnpm store
+  const pnpmDir = path.join(process.cwd(), "node_modules", ".pnpm");
+  if (fs.existsSync(pnpmDir)) {
+    try {
+      const coreDirs = fs.readdirSync(pnpmDir).filter((f) => f.startsWith("playwright-core@"));
+      if (coreDirs.length > 0) {
+        candidates.push(
+          path.join(pnpmDir, coreDirs[0], "node_modules", "playwright-core", "cli.js")
+        );
+      }
+    } catch {
+      // Ignore read errors
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * Ensure Playwright browsers are installed.
+ * If the browser executable is missing, auto-install it.
+ */
+function ensurePlaywrightBrowsers(): void {
+  if (arePlaywrightBrowsersInstalled()) {
+    return;
+  }
+
+  console.log("[fb-ads] Playwright browsers not found, installing...");
+  try {
+    const cliPath = findPlaywrightCliPath();
+    if (cliPath) {
+      execSync(`node "${cliPath}" install chromium-headless-shell`, {
+        stdio: "inherit",
+        timeout: 120000,
+      });
+    } else {
+      // Fallback: try npx
+      execSync("npx playwright install chromium-headless-shell", {
+        stdio: "inherit",
+        timeout: 120000,
+      });
+    }
+    console.log("[fb-ads] Playwright browsers installed successfully");
+  } catch (installError) {
+    console.error("[fb-ads] Failed to install Playwright browsers:", installError);
+  }
 }
 
 /**
@@ -24,6 +103,9 @@ export async function scrapeFbAdsLibrary(query: string): Promise<FbAdsResult> {
     advertiserName: null,
     success: false,
   };
+
+  // Ensure browsers are installed before launching
+  ensurePlaywrightBrowsers();
 
   let browser;
   try {
