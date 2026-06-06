@@ -29,7 +29,6 @@ export async function scrapeFbAdsLibrary(query: string): Promise<FbAdsResult> {
   try {
     browser = await chromium.launch({
       headless: true,
-      channel: "chrome",
     });
 
     const page = await browser.newPage();
@@ -106,5 +105,6 @@ export function buildImprovement1Text(adCount: number): string {
   if (adCount === 0) {
     return "I don't see you're running any meta ads for selling your products. There's a high chance that your current priority is totally on organic sales.";
   }
-  return `You've only ${adCount} active meta ads scheduled and may be you're current priorities are from organic sales.`;
+  const adWord = adCount === 1 ? "ad" : "ads";
+  return `You've only got ${adCount} active meta ${adWord} scheduled and maybe your current priorities are from organic sales.`;
 }

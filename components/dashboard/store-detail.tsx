@@ -395,8 +395,8 @@ function LeadExportForm({
                 setImp1NoAds(true);
                 setImp1AdCount(null);
               } else {
-                // Try to extract ad count from text like "only 3 active meta ads"
-                const match = data.improvement1.match(/only (\d+) active/);
+                // Try to extract ad count from text like "only got 3 active meta ads"
+                const match = data.improvement1.match(/only got (\d+) active/);
                 if (match) {
                   const count = parseInt(match[1]);
                   if (count >= 1 && count <= 5) {
@@ -460,7 +460,8 @@ function LeadExportForm({
       return "I don't see you're running any meta ads for selling your products. There's a high chance that your current priority is totally on organic sales.";
     }
     if (imp1AdCount !== null) {
-      return `You've only ${imp1AdCount} active meta ads scheduled and may be you're current priorities are from organic sales.`;
+      const adWord = imp1AdCount === 1 ? "ad" : "ads";
+      return `You've only got ${imp1AdCount} active meta ${adWord} scheduled and maybe your current priorities are from organic sales.`;
     }
     return leadExport.improvement1 || "";
   };
