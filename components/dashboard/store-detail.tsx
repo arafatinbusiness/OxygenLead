@@ -3,10 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   ArrowLeft, Trash2, ExternalLink, Users, Globe, TrendingUp,
-  Search, Mail, Copy, CheckCircle2, ClipboardList
+  Search, Mail, Copy, CheckCircle2, ClipboardList, Plus, Save,
+  ThumbsUp, MessageSquare, FileText, HelpCircle, Link, Image,
+  Lightbulb, X
 } from 'lucide-react';
 import { ScrapingProgressBar } from './scraping-progress';
 import { apiUrl } from '@/lib/api';
@@ -37,6 +41,33 @@ interface ManualContact {
   status: string;
   personName?: string;
   createdAt: string;
+}
+
+interface LeadExportData {
+  positivePoint1?: string;
+  positivePoint2?: string;
+  positivePoint3?: string;
+  positivePoint4?: string;
+  positivePoint5?: string;
+  positivePoint6?: string;
+  positivePoint7?: string;
+  positivePoint8?: string;
+  positivePoint9?: string;
+  positivePoint10?: string;
+  improvement1?: string;
+  improvement2?: string;
+  improvement3?: string;
+  improvement4?: string;
+  improvement5?: string;
+  improvement6?: string;
+  improvement7?: string;
+  improvement8?: string;
+  improvement9?: string;
+  improvement10?: string;
+  customNotes?: string;
+  quickQuestion?: string;
+  videoLink?: string;
+  imageLink?: string;
 }
 
 interface StoreDetailProps {
@@ -285,6 +316,492 @@ function SavedContactCard({
         <p>Email: {contact.email}</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Lead Export Data Form - appears after email is saved
+ */
+function LeadExportForm({
+  storeId,
+  token,
+  domain,
+  storeName,
+}: {
+  storeId: string;
+  token: string;
+  domain: string;
+  storeName?: string;
+}) {
+  const [leadExport, setLeadExport] = useState<LeadExportData>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [showPositivePoints, setShowPositivePoints] = useState(2); // Show first 2 by default
+  const [showImprovements, setShowImprovements] = useState(1); // Show first 1 by default
+
+  // Positive Point 1 checkboxes
+  const [pp1Great, setPp1Great] = useState(false);
+  const [pp1BumpOffers, setPp1BumpOffers] = useState(false);
+  const [pp1Upsell, setPp1Upsell] = useState(false);
+
+  // Positive Point 2 checkboxes
+  const [pp2Visual, setPp2Visual] = useState(false);
+  const [pp2JLAction, setPp2JLAction] = useState(false);
+
+  // Improvement 1 radio-like selection
+  const [imp1NoAds, setImp1NoAds] = useState(false);
+  const [imp1HasAds, setImp1HasAds] = useState(false);
+
+  // Quick Question
+  const [useDefaultQuestion, setUseDefaultQuestion] = useState(true);
+  const [customQuestion, setCustomQuestion] = useState('');
+
+  const DEFAULT_QUICK_QUESTION = "Out of curiosity, how are you currently handling Shopify updates, app integrations, and ongoing store improvements?";
+  const DEFAULT_CUSTOM_NOTES = "I work with Shopify brands that already have strong stores but want someone reliable to handle the technical side as they continue growing.";
+
+  // Load existing data
+  useEffect(() => {
+    const fetchLeadExport = async () => {
+      try {
+        const response = await fetch(apiUrl(`/api/stores/${storeId}/lead-export`), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.id) {
+            setLeadExport(data);
+            // Restore checkbox states from saved data
+            if (data.positivePoint1) {
+              setPp1Great(data.positivePoint1.includes('really great'));
+              setPp1BumpOffers(data.positivePoint1.includes('Buy More Save More'));
+              setPp1Upsell(data.positivePoint1.includes('upsell'));
+            }
+            if (data.positivePoint2) {
+              setPp2Visual(data.positivePoint2.includes('visual'));
+              setPp2JLAction(data.positivePoint2.includes('J&L in Action'));
+            }
+            if (data.improvement1) {
+              if (data.improvement1.includes("don't see you're running any meta ads")) {
+                setImp1NoAds(true);
+              } else {
+                setImp1HasAds(true);
+              }
+            }
+            if (data.quickQuestion) {
+              if (data.quickQuestion === DEFAULT_QUICK_QUESTION) {
+                setUseDefaultQuestion(true);
+              } else {
+                setUseDefaultQuestion(false);
+                setCustomQuestion(data.quickQuestion);
+              }
+            }
+            // Show how many positive points and improvements are filled
+            const ppCount = [1,2,3,4,5,6,7,8,9,10].filter(i => data[`positivePoint${i}` as keyof LeadExportData]).length;
+            const impCount = [1,2,3,4,5,6,7,8,9,10].filter(i => data[`improvement${i}` as keyof LeadExportData]).length;
+            setShowPositivePoints(Math.max(2, ppCount));
+            setShowImprovements(Math.max(1, impCount));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch lead export:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLeadExport();
+  }, [storeId, token]);
+
+  // Build positive point 1 text from checkboxes
+  const buildPositivePoint1 = (): string => {
+    const parts: string[] = [];
+    if (pp1Great) parts.push("The product detail page is really great");
+    if (pp1BumpOffers) parts.push("has Buy More Save More & bump offers");
+    if (pp1Upsell) parts.push("upsell");
+    if (parts.length === 0) return leadExport.positivePoint1 || "";
+    if (parts.length === 1) return parts[0];
+    // Combine: first part + " and " + rest joined with " & "
+    const last = parts.pop()!;
+    return parts.join(", ") + " and " + last + ".";
+  };
+
+  // Build positive point 2 text from checkboxes
+  const buildPositivePoint2 = (): string => {
+    const parts: string[] = [];
+    if (pp2Visual) parts.push(`Loved the overall visual of ${domain}`);
+    if (pp2JLAction) parts.push("Your store has See J&L in Action Section which is really cool");
+    if (parts.length === 0) return leadExport.positivePoint2 || "";
+    return parts.join(". ") + ".";
+  };
+
+  // Build improvement 1 text
+  const buildImprovement1 = (): string => {
+    if (imp1NoAds) {
+      return "I don't see you're running any meta ads for selling your products. There's a high chance that your current priority is totally on organic sales.";
+    }
+    if (imp1HasAds) {
+      return "You've only one active meta ad scheduled and may be you're current priorities are from organic sales.";
+    }
+    return leadExport.improvement1 || "";
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+
+    const data: LeadExportData = {
+      positivePoint1: buildPositivePoint1() || leadExport.positivePoint1 || undefined,
+      positivePoint2: buildPositivePoint2() || leadExport.positivePoint2 || undefined,
+      positivePoint3: leadExport.positivePoint3 || undefined,
+      positivePoint4: leadExport.positivePoint4 || undefined,
+      positivePoint5: leadExport.positivePoint5 || undefined,
+      positivePoint6: leadExport.positivePoint6 || undefined,
+      positivePoint7: leadExport.positivePoint7 || undefined,
+      positivePoint8: leadExport.positivePoint8 || undefined,
+      positivePoint9: leadExport.positivePoint9 || undefined,
+      positivePoint10: leadExport.positivePoint10 || undefined,
+      improvement1: buildImprovement1() || leadExport.improvement1 || undefined,
+      improvement2: leadExport.improvement2 || undefined,
+      improvement3: leadExport.improvement3 || undefined,
+      improvement4: leadExport.improvement4 || undefined,
+      improvement5: leadExport.improvement5 || undefined,
+      improvement6: leadExport.improvement6 || undefined,
+      improvement7: leadExport.improvement7 || undefined,
+      improvement8: leadExport.improvement8 || undefined,
+      improvement9: leadExport.improvement9 || undefined,
+      improvement10: leadExport.improvement10 || undefined,
+      customNotes: leadExport.customNotes || DEFAULT_CUSTOM_NOTES,
+      quickQuestion: useDefaultQuestion ? DEFAULT_QUICK_QUESTION : (customQuestion || DEFAULT_QUICK_QUESTION),
+      videoLink: leadExport.videoLink || undefined,
+      imageLink: leadExport.imageLink || undefined,
+    };
+
+    try {
+      const response = await fetch(apiUrl(`/api/stores/${storeId}/lead-export`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const savedData = await response.json();
+        setLeadExport(savedData);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save lead export:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updatePositivePoint = (index: number, value: string) => {
+    setLeadExport(prev => ({ ...prev, [`positivePoint${index}`]: value }));
+  };
+
+  const updateImprovement = (index: number, value: string) => {
+    setLeadExport(prev => ({ ...prev, [`improvement${index}`]: value }));
+  };
+
+  if (loading) {
+    return (
+      <Card className="p-6 border-secondary/20 animate-pulse">
+        <div className="h-6 bg-muted rounded mb-4 w-1/3"></div>
+        <div className="space-y-3">
+          <div className="h-4 bg-muted rounded"></div>
+          <div className="h-4 bg-muted rounded w-3/4"></div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6 border-secondary/20">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <FileText className="w-5 h-5 text-primary" />
+          Lead Export Data
+        </h2>
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          variant="default"
+          className="bg-primary hover:bg-primary/90"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Export Data'}
+        </Button>
+      </div>
+
+      <div className="space-y-6">
+        {/* ===== POSITIVE POINTS ===== */}
+        <div className="space-y-4">
+          <h3 className="text-md font-semibold flex items-center gap-2 text-green-600">
+            <ThumbsUp className="w-4 h-4" />
+            Positive Points
+          </h3>
+
+          {/* Positive Point 1 */}
+          <div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+            <p className="text-sm font-medium mb-3">Positive Point 1</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={pp1Great}
+                  onCheckedChange={(checked) => setPp1Great(checked === true)}
+                />
+                <span>The product detail page is really great</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={pp1BumpOffers}
+                  onCheckedChange={(checked) => setPp1BumpOffers(checked === true)}
+                />
+                <span>has Buy More Save More & bump offers</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={pp1Upsell}
+                  onCheckedChange={(checked) => setPp1Upsell(checked === true)}
+                />
+                <span>upsell</span>
+              </label>
+            </div>
+            {/* Preview */}
+            {(pp1Great || pp1BumpOffers || pp1Upsell) && (
+              <div className="mt-3 p-2 rounded bg-background/50 text-xs text-muted-foreground italic">
+                Preview: {buildPositivePoint1()}
+              </div>
+            )}
+          </div>
+
+          {/* Positive Point 2 */}
+          <div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+            <p className="text-sm font-medium mb-3">Positive Point 2</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={pp2Visual}
+                  onCheckedChange={(checked) => setPp2Visual(checked === true)}
+                />
+                <span>Loved the overall visual of {domain}</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={pp2JLAction}
+                  onCheckedChange={(checked) => setPp2JLAction(checked === true)}
+                />
+                <span>Your store has See J&L in Action Section which is really cool</span>
+              </label>
+            </div>
+            {/* Preview */}
+            {(pp2Visual || pp2JLAction) && (
+              <div className="mt-3 p-2 rounded bg-background/50 text-xs text-muted-foreground italic">
+                Preview: {buildPositivePoint2()}
+              </div>
+            )}
+          </div>
+
+          {/* Positive Points 3-10 (dynamic) */}
+          {Array.from({ length: Math.max(0, showPositivePoints - 2) }, (_, i) => i + 3).map((index) => (
+            <div key={`pp-${index}`} className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium">Positive Point {index}</p>
+                {index > 3 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      updatePositivePoint(index, '');
+                      setShowPositivePoints(prev => Math.max(2, prev - 1));
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+              <Input
+                placeholder="Enter custom positive point..."
+                value={leadExport[`positivePoint${index}` as keyof LeadExportData] || ''}
+                onChange={(e) => updatePositivePoint(index, e.target.value)}
+                className="bg-input/50 border-secondary/20"
+              />
+            </div>
+          ))}
+
+          {/* Add Positive Point Button */}
+          {showPositivePoints < 10 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-secondary/20 hover:bg-secondary/5 w-full"
+              onClick={() => setShowPositivePoints(prev => Math.min(10, prev + 1))}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Positive Point {showPositivePoints + 1}
+            </Button>
+          )}
+        </div>
+
+        {/* ===== IMPROVEMENTS ===== */}
+        <div className="space-y-4 pt-4 border-t border-secondary/20">
+          <h3 className="text-md font-semibold flex items-center gap-2 text-orange-600">
+            <Lightbulb className="w-4 h-4" />
+            Improvements
+          </h3>
+
+          {/* Improvement 1 */}
+          <div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+            <p className="text-sm font-medium mb-3">Improvement 1</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="improvement1"
+                  checked={imp1NoAds}
+                  onChange={() => { setImp1NoAds(true); setImp1HasAds(false); }}
+                  className="accent-primary"
+                />
+                <span>No Meta Ads</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="improvement1"
+                  checked={imp1HasAds}
+                  onChange={() => { setImp1HasAds(true); setImp1NoAds(false); }}
+                  className="accent-primary"
+                />
+                <span>Has Meta Ads</span>
+              </label>
+            </div>
+            {/* Preview */}
+            {(imp1NoAds || imp1HasAds) && (
+              <div className="mt-3 p-2 rounded bg-background/50 text-xs text-muted-foreground italic">
+                Preview: {buildImprovement1()}
+              </div>
+            )}
+          </div>
+
+          {/* Improvements 2-10 (dynamic) */}
+          {Array.from({ length: Math.max(0, showImprovements - 1) }, (_, i) => i + 2).map((index) => (
+            <div key={`imp-${index}`} className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium">Improvement {index}</p>
+                {index > 2 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      updateImprovement(index, '');
+                      setShowImprovements(prev => Math.max(1, prev - 1));
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+              <Input
+                placeholder="Enter custom improvement..."
+                value={leadExport[`improvement${index}` as keyof LeadExportData] || ''}
+                onChange={(e) => updateImprovement(index, e.target.value)}
+                className="bg-input/50 border-secondary/20"
+              />
+            </div>
+          ))}
+
+          {/* Add Improvement Button */}
+          {showImprovements < 10 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-secondary/20 hover:bg-secondary/5 w-full"
+              onClick={() => setShowImprovements(prev => Math.min(10, prev + 1))}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Improvement {showImprovements + 1}
+            </Button>
+          )}
+        </div>
+
+        {/* ===== CUSTOM NOTES ===== */}
+        <div className="space-y-2 pt-4 border-t border-secondary/20">
+          <h3 className="text-md font-semibold flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-primary" />
+            Custom Notes
+          </h3>
+          <Textarea
+            placeholder="Enter custom notes..."
+            value={leadExport.customNotes ?? DEFAULT_CUSTOM_NOTES}
+            onChange={(e) => setLeadExport(prev => ({ ...prev, customNotes: e.target.value }))}
+            className="bg-input/50 border-secondary/20 min-h-[80px]"
+          />
+        </div>
+
+        {/* ===== QUICK QUESTION ===== */}
+        <div className="space-y-2 pt-4 border-t border-secondary/20">
+          <h3 className="text-md font-semibold flex items-center gap-2">
+            <HelpCircle className="w-4 h-4 text-primary" />
+            Quick Question
+          </h3>
+          <label className="flex items-center gap-2 text-sm cursor-pointer mb-2">
+            <Checkbox
+              checked={useDefaultQuestion}
+              onCheckedChange={(checked) => setUseDefaultQuestion(checked === true)}
+            />
+            <span>Use default question</span>
+          </label>
+          {useDefaultQuestion ? (
+            <div className="p-3 rounded bg-secondary/5 border border-secondary/10 text-sm text-muted-foreground italic">
+              {DEFAULT_QUICK_QUESTION}
+            </div>
+          ) : (
+            <Input
+              placeholder="Enter your custom question..."
+              value={customQuestion}
+              onChange={(e) => setCustomQuestion(e.target.value)}
+              className="bg-input/50 border-secondary/20"
+            />
+          )}
+        </div>
+
+        {/* ===== VIDEO & IMAGE LINKS ===== */}
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-secondary/20">
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Link className="w-4 h-4 text-primary" />
+              Video Link
+            </h3>
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={leadExport.videoLink || ''}
+              onChange={(e) => setLeadExport(prev => ({ ...prev, videoLink: e.target.value }))}
+              className="bg-input/50 border-secondary/20"
+            />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Image className="w-4 h-4 text-primary" />
+              Image Link
+            </h3>
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={leadExport.imageLink || ''}
+              onChange={(e) => setLeadExport(prev => ({ ...prev, imageLink: e.target.value }))}
+              className="bg-input/50 border-secondary/20"
+            />
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -567,6 +1084,16 @@ export function StoreDetail({ store, token, onBack, onDelete }: StoreDetailProps
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Lead Export Data Form - shown when there are saved contacts */}
+      {manualContacts.length > 0 && (
+        <LeadExportForm
+          storeId={store.id}
+          token={token}
+          domain={detailedStore.domain}
+          storeName={detailedStore.storeName || undefined}
+        />
       )}
 
       {/* Scraping Progress (shown when actively scraping) */}

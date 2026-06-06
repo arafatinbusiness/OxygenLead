@@ -48,6 +48,7 @@ model Store {
   history         StoreHistory[]
   manualSearches  ManualSearch[]
   manualContacts  ManualContact[]
+  leadExport      LeadExport?
 
   @@index([userId])
   @@index([domain])
@@ -201,4 +202,46 @@ model ManualContact {
 
   @@index([storeId])
   @@index([email])
+}
+
+// Lead export data: positive points, improvements, notes, etc.
+model LeadExport {
+  id              String   @id @default(cuid())
+  storeId         String   @unique
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // Positive Points (1-10)
+  positivePoint1  String?
+  positivePoint2  String?
+  positivePoint3  String?
+  positivePoint4  String?
+  positivePoint5  String?
+  positivePoint6  String?
+  positivePoint7  String?
+  positivePoint8  String?
+  positivePoint9  String?
+  positivePoint10 String?
+
+  // Improvements (1-10)
+  improvement1    String?
+  improvement2    String?
+  improvement3    String?
+  improvement4    String?
+  improvement5    String?
+  improvement6    String?
+  improvement7    String?
+  improvement8    String?
+  improvement9    String?
+  improvement10   String?
+
+  // Other fields
+  customNotes     String?
+  quickQuestion   String?
+  videoLink       String?
+  imageLink       String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([storeId])
 }

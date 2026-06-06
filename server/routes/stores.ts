@@ -268,6 +268,73 @@ router.get("/:id/manual-contacts", authMiddleware, async (req: AuthRequest, res:
   }
 });
 
+// Save or update lead export data for a store
+router.post("/:id/lead-export", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const store = await prisma.store.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!store) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+
+    const {
+      positivePoint1, positivePoint2, positivePoint3, positivePoint4, positivePoint5,
+      positivePoint6, positivePoint7, positivePoint8, positivePoint9, positivePoint10,
+      improvement1, improvement2, improvement3, improvement4, improvement5,
+      improvement6, improvement7, improvement8, improvement9, improvement10,
+      customNotes, quickQuestion, videoLink, imageLink,
+    } = req.body;
+
+    const leadExport = await prisma.leadExport.upsert({
+      where: { storeId: req.params.id },
+      update: {
+        positivePoint1, positivePoint2, positivePoint3, positivePoint4, positivePoint5,
+        positivePoint6, positivePoint7, positivePoint8, positivePoint9, positivePoint10,
+        improvement1, improvement2, improvement3, improvement4, improvement5,
+        improvement6, improvement7, improvement8, improvement9, improvement10,
+        customNotes, quickQuestion, videoLink, imageLink,
+      },
+      create: {
+        storeId: req.params.id,
+        positivePoint1, positivePoint2, positivePoint3, positivePoint4, positivePoint5,
+        positivePoint6, positivePoint7, positivePoint8, positivePoint9, positivePoint10,
+        improvement1, improvement2, improvement3, improvement4, improvement5,
+        improvement6, improvement7, improvement8, improvement9, improvement10,
+        customNotes, quickQuestion, videoLink, imageLink,
+      },
+    });
+
+    res.json(leadExport);
+  } catch (error) {
+    console.error("[v0] Save lead export error:", error);
+    res.status(500).json({ error: "Failed to save lead export data" });
+  }
+});
+
+// Get lead export data for a store
+router.get("/:id/lead-export", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const store = await prisma.store.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!store) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+
+    const leadExport = await prisma.leadExport.findUnique({
+      where: { storeId: req.params.id },
+    });
+
+    res.json(leadExport || {});
+  } catch (error) {
+    console.error("[v0] Get lead export error:", error);
+    res.status(500).json({ error: "Failed to fetch lead export data" });
+  }
+});
+
 // Delete store
 router.delete("/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
