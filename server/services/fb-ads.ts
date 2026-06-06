@@ -28,17 +28,38 @@ function arePlaywrightBrowsersInstalled(): boolean {
 }
 
 /**
+ * Find the project root directory by looking for node_modules
+ * starting from the server directory and going up.
+ */
+function findProjectRoot(): string | null {
+  let dir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(dir, "node_modules"))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // Reached filesystem root
+    dir = parent;
+  }
+  return null;
+}
+
+/**
  * Find the playwright-core CLI path in node_modules.
  */
 function findPlaywrightCliPath(): string | null {
+  // Find project root (directory containing node_modules)
+  const projectRoot = findProjectRoot();
+  if (!projectRoot) return null;
+
   // Check common locations
   const candidates = [
-    path.join(process.cwd(), "node_modules", "playwright-core", "cli.js"),
-    path.join(process.cwd(), "node_modules", "playwright", "cli.js"),
+    path.join(projectRoot, "node_modules", "playwright-core", "cli.js"),
+    path.join(projectRoot, "node_modules", "playwright", "cli.js"),
   ];
 
   // Check pnpm store
-  const pnpmDir = path.join(process.cwd(), "node_modules", ".pnpm");
+  const pnpmDir = path.join(projectRoot, "node_modules", ".pnpm");
   if (fs.existsSync(pnpmDir)) {
     try {
       const coreDirs = fs.readdirSync(pnpmDir).filter((f) => f.startsWith("playwright-core@"));
