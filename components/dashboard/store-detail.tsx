@@ -353,6 +353,9 @@ function LeadExportForm({
   const [imp1NoAds, setImp1NoAds] = useState(false);
   const [imp1AdCount, setImp1AdCount] = useState<number | null>(null);
 
+  // Improvement 2 checkbox
+  const [imp2PdpProfessional, setImp2PdpProfessional] = useState(false);
+
   // Quick Question
   const [useDefaultQuestion, setUseDefaultQuestion] = useState(true);
   const [customQuestion, setCustomQuestion] = useState('');
@@ -395,6 +398,9 @@ function LeadExportForm({
                   }
                 }
               }
+            }
+            if (data.improvement2) {
+              setImp2PdpProfessional(data.improvement2.includes('Product detail page can be made more professional'));
             }
             if (data.quickQuestion) {
               if (data.quickQuestion === DEFAULT_QUICK_QUESTION) {
@@ -453,6 +459,14 @@ function LeadExportForm({
     return leadExport.improvement1 || "";
   };
 
+  // Build improvement 2 text from checkbox
+  const buildImprovement2 = (): string => {
+    if (imp2PdpProfessional) {
+      return "Product detail page can be made more professional.";
+    }
+    return leadExport.improvement2 || "";
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
@@ -469,7 +483,7 @@ function LeadExportForm({
       positivePoint9: leadExport.positivePoint9 || undefined,
       positivePoint10: leadExport.positivePoint10 || undefined,
       improvement1: buildImprovement1() || leadExport.improvement1 || undefined,
-      improvement2: leadExport.improvement2 || undefined,
+      improvement2: buildImprovement2() || leadExport.improvement2 || undefined,
       improvement3: leadExport.improvement3 || undefined,
       improvement4: leadExport.improvement4 || undefined,
       improvement5: leadExport.improvement5 || undefined,
@@ -703,19 +717,39 @@ function LeadExportForm({
             )}
           </div>
 
-          {/* Improvements 2-10 (dynamic) */}
-          {Array.from({ length: Math.max(0, showImprovements - 1) }, (_, i) => i + 2).map((index) => (
+          {/* Improvement 2 */}
+          <div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+            <p className="text-sm font-medium mb-3">Improvement 2</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={imp2PdpProfessional}
+                  onCheckedChange={(checked) => setImp2PdpProfessional(checked === true)}
+                />
+                <span>Product detail page can be made more professional</span>
+              </label>
+            </div>
+            {/* Preview */}
+            {imp2PdpProfessional && (
+              <div className="mt-3 p-2 rounded bg-background/50 text-xs text-muted-foreground italic">
+                Preview: {buildImprovement2()}
+              </div>
+            )}
+          </div>
+
+          {/* Improvements 3-10 (dynamic) */}
+          {Array.from({ length: Math.max(0, showImprovements - 2) }, (_, i) => i + 3).map((index) => (
             <div key={`imp-${index}`} className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium">Improvement {index}</p>
-                {index > 2 && (
+                {index > 3 && (
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                     onClick={() => {
                       updateImprovement(index, '');
-                      setShowImprovements(prev => Math.max(1, prev - 1));
+                      setShowImprovements(prev => Math.max(2, prev - 1));
                     }}
                   >
                     <X className="w-3 h-3" />
