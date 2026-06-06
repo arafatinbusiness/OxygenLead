@@ -349,9 +349,15 @@ function LeadExportForm({
   const [pp2Visual, setPp2Visual] = useState(false);
   const [pp2JLAction, setPp2JLAction] = useState(false);
 
+  // FB Ads scanning
+  const [scanningFbAds, setScanningFbAds] = useState(false);
+  const [fbAdsScanned, setFbAdsScanned] = useState(false);
+  const [fbAdsError, setFbAdsError] = useState('');
+
   // Improvement 1 radio-like selection
   const [imp1NoAds, setImp1NoAds] = useState(false);
   const [imp1AdCount, setImp1AdCount] = useState<number | null>(null);
+  const [imp1AutoDetected, setImp1AutoDetected] = useState(false);
 
   // Improvement 2 checkbox
   const [imp2PdpProfessional, setImp2PdpProfessional] = useState(false);
@@ -679,7 +685,63 @@ function LeadExportForm({
 
           {/* Improvement 1 */}
           <div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
-            <p className="text-sm font-medium mb-3">Improvement 1</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium">Improvement 1</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-blue-500/30 text-blue-600 hover:bg-blue-500/10 text-xs"
+                disabled={scanningFbAds}
+                onClick={async () => {
+                  setScanningFbAds(true);
+                  setFbAdsError('');
+                  setFbAdsScanned(false);
+                  try {
+                    const response = await fetch(apiUrl(`/api/stores/${storeId}/scan-fb-ads`), {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.totalAds === 0) {
+                        setImp1NoAds(true);
+                        setImp1AdCount(null);
+                      } else {
+                        setImp1AdCount(Math.min(data.totalAds, 5));
+                        setImp1NoAds(false);
+                      }
+                      setImp1AutoDetected(true);
+                      setFbAdsScanned(true);
+                    } else {
+                      const err = await response.json();
+                      setFbAdsError(err.error || 'Scan failed');
+                    }
+                  } catch (err) {
+                    setFbAdsError('Failed to connect to server');
+                  } finally {
+                    setScanningFbAds(false);
+                  }
+                }}
+              >
+                {scanningFbAds ? (
+                  <>Scanning...</>
+                ) : (
+                  <>
+                    <Search className="w-3 h-3 mr-1" />
+                    Scan FB Ads
+                  </>
+                )}
+              </Button>
+            </div>
+            {fbAdsError && (
+              <p className="text-xs text-red-500 mb-2">{fbAdsError}</p>
+            )}
+            {fbAdsScanned && (
+              <p className="text-xs text-green-600 mb-2 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Auto-detected! You can adjust below if needed.
+              </p>
+            )}
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input

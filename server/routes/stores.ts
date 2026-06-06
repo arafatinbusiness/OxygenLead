@@ -4,6 +4,7 @@ import { authMiddleware, AuthRequest } from "../middleware/auth";
 import { enqueueJob } from "../queue/queue";
 import { updateProgress, getProgress, PROGRESS_STEPS } from "../services/progress";
 import { quickFounderLookup } from "../services/gemini";
+import { scrapeFbAdsLibrary, buildImprovement1Text } from "../services/fb-ads";
 
 const router = Router();
 
@@ -332,6 +333,56 @@ router.get("/:id/lead-export", authMiddleware, async (req: AuthRequest, res: Res
   } catch (error) {
     console.error("[v0] Get lead export error:", error);
     res.status(500).json({ error: "Failed to fetch lead export data" });
+  }
+});
+
+// Scan Facebook Ads Library for a store
+router.post("/:id/scan-fb-ads", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const store = await prisma.store.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!store) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+
+    // Use the domain as the search query
+    const query = store.domain;
+
+    console.log(`[fb-ads] Scanning FB Ads Library for "${query}"...`);
+
+    const result = await scrapeFbAdsLibrary(query);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: result.error || "Failed to scan Facebook Ads Library",
+      });
+    }
+
+    // Build the improvement text
+    const improvementText = buildImprovement1Text(result.totalAds);
+
+    // Auto-save to lead export if it exists
+    const existingLeadExport = await prisma.leadExport.findUnique({
+      where: { storeId: req.params.id },
+    });
+
+    if (existingLeadExport) {
+      await prisma.leadExport.update({
+        where: { storeId: req.params.id },
+        data: { improvement1: improvementText },
+      });
+    }
+
+    res.json({
+      totalAds: result.totalAds,
+      advertiserName: result.advertiserName,
+      improvementText,
+    });
+  } catch (error) {
+    console.error("[v0] Scan FB Ads error:", error);
+    res.status(500).json({ error: "Failed to scan Facebook Ads Library" });
   }
 });
 
